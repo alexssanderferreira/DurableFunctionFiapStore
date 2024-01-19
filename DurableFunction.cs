@@ -1,4 +1,3 @@
-using DurableFunction.Infra.Contratos;
 using DurableFunction.Model;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +7,7 @@ using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -17,13 +17,6 @@ namespace DurableFunction;
 
 public class DurableFunction
 {
-    private readonly IPedidoRepository _pedidoRepository;
-
-    public DurableFunction(IPedidoRepository pedidoRepository)
-    {
-        _pedidoRepository = pedidoRepository;
-    }
-
     [FunctionName("Orchestrator")]
     public static async Task<Pedido> RunOrchestrator(
         [OrchestrationTrigger] IDurableOrchestrationContext context)
@@ -86,8 +79,6 @@ public class DurableFunction
         pedido.IsEnvio = true;
         pedido.Status = Enum.EStatusProcessamento.ProcessamentoSuccesso;
 
-        await _pedidoRepository.AdicionarAsync(pedido);
-
         log.LogInformation($"Pedido {pedido.Id} processado.");
         var successResponse = new HttpResponseMessage(HttpStatusCode.OK)
         {
@@ -97,7 +88,7 @@ public class DurableFunction
     }
 
     [FunctionName("Pedido_HttpStart")]
-    public static async Task HttpStart(
+    public static async Task<ActionResult> HttpStart(
         [HttpTrigger(AuthorizationLevel.Anonymous, "post")] HttpRequestMessage req,
         [DurableClient] IDurableOrchestrationClient starter,
         ILogger log)
@@ -111,6 +102,8 @@ public class DurableFunction
         log.LogInformation($"Pedido {pedido.Id}");
         
         await starter.StartNewAsync("Orchestrator", pedido);
+
+        return new OkObjectResult(pedido);
     }
 
     [FunctionName("GetPedido")]
@@ -120,21 +113,26 @@ public class DurableFunction
     {
         var id = req.Query["id"];
 
-        if (string.IsNullOrWhiteSpace(id))
+        Pedido pedido = new Pedido();
+
+        string idGuid = "DC8AC6C3-5E91-4B95-BB5C-43F0031C0A5F";
+
+        if(id == idGuid) 
         {
-            return null;
+            log.LogInformation($"Consulta pedido {pedido.Id}.");
+
+            pedido.Id = Guid.Parse(idGuid);
+            pedido.Status = Enum.EStatusProcessamento.ProcessamentoSuccesso;
+            pedido.DataProcessamento = DateTime.Now;
+            pedido.ValorPedido = 100;
+            pedido.IsEnvio = true;
+            pedido.Cliente = new Cliente() { Id = Guid.NewGuid(), Nome = "Cliente Teste" };
+            pedido.Produtos = new List<Produto>() { new Produto() { Id = Guid.NewGuid(), Nome = "Produto Teste", Valor = 100, Quantidade = 1 } };
+
+            return new OkObjectResult(pedido);
         }
 
-        Pedido pedido = await _pedidoRepository.ObterPorIdAsync(Guid.Parse(id));
-
-        if (pedido == null)
-        {
-            return null;
-        }
-
-        log.LogInformation($"Consulta pedido {pedido.Id}.");
-
-        return new OkObjectResult(pedido);
+        return new NotFoundResult();
     }
 
 }
