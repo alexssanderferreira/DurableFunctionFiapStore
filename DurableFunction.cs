@@ -68,10 +68,10 @@ public class DurableFunction
     {
         if (pedido.Status != Enum.EStatusProcessamento.Processamento)
         {
-            log.LogInformation($"Pedido {pedido.Id} não processado.");
+            log.LogInformation($"Pedido {pedido.Id} nao processado.");
             var erroResponse = new HttpResponseMessage(HttpStatusCode.BadRequest)
             {
-                Content = new StringContent(JsonConvert.SerializeObject(new { Mensagem = "Pedido não processado, verifique as informações." }), Encoding.UTF8, "application/json")
+                Content = new StringContent(JsonConvert.SerializeObject(new { Mensagem = "Pedido nï¿½o processado, verifique as informacoes." }), Encoding.UTF8, "application/json")
             };
             return erroResponse;
         }
@@ -89,7 +89,7 @@ public class DurableFunction
 
     [FunctionName("Pedido_HttpStart")]
     public static async Task<ActionResult> HttpStart(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "post")] HttpRequestMessage req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "novopedido")] HttpRequestMessage req,
         [DurableClient] IDurableOrchestrationClient starter,
         ILogger log)
     {
@@ -108,7 +108,7 @@ public class DurableFunction
 
     [FunctionName("GetPedido")]
     public async Task<ActionResult> GetPedido(
-        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "GetPedido")] HttpRequest req,
+        [HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "pedido")] HttpRequest req,
         ILogger log)
     {
         var id = req.Query["id"];
@@ -119,7 +119,6 @@ public class DurableFunction
 
         if(id == idGuid) 
         {
-            log.LogInformation($"Consulta pedido {pedido.Id}.");
 
             pedido.Id = Guid.Parse(idGuid);
             pedido.Status = Enum.EStatusProcessamento.ProcessamentoSuccesso;
@@ -129,6 +128,7 @@ public class DurableFunction
             pedido.Cliente = new Cliente() { Id = Guid.NewGuid(), Nome = "Cliente Teste" };
             pedido.Produtos = new List<Produto>() { new Produto() { Id = Guid.NewGuid(), Nome = "Produto Teste", Valor = 100, Quantidade = 1 } };
 
+            log.LogInformation($"Consulta pedido {pedido.Id}.");
             return new OkObjectResult(pedido);
         }
 
